@@ -98,7 +98,8 @@ Copyright (c) 2019 Jean Michault.
 #define ERRO 0xFF
 
 // Misc
-#define BUFSIZE 512
+#define R_BUFSIZE 32768
+#define W_BUFSIZE 512
 #define PAGESIZE 2048
 #define MAXPAGES 128
 
@@ -320,20 +321,18 @@ uint8_t debug_exit(void)
 // Enter debug mode.
 void debug_enter(void)
 {
-        volatile uint8_t loop;
-
         digitalWrite(DD, LOW);
         digitalWrite(DC, LOW);
         digitalWrite(RESET, LOW);
         cc_delay(200);
-                digitalWrite(DC, HIGH);
-                cc_delay(2);
-                digitalWrite(DC, LOW);
-                cc_delay(2);
-                digitalWrite(DC, HIGH);
-                cc_delay(2);
-                digitalWrite(DC, LOW);
-                cc_delay(1);
+          digitalWrite(DC, HIGH);
+          cc_delay(2);
+          digitalWrite(DC, LOW);
+          cc_delay(2);
+          digitalWrite(DC, HIGH);
+          cc_delay(2);
+          digitalWrite(DC, LOW);
+          cc_delay(3);
         digitalWrite(RESET, HIGH);
         cc_delay(200);
 }
@@ -559,30 +558,29 @@ uint8_t flash(uint8_t *fw, uint8_t pages, uint8_t Verify, uint8_t Verbose)
         uint8_t *txPtr;
         uint16_t iterations;
         uint32_t addr = 0;
-        uint8_t read_data[BUFSIZE];
 
         // PAGESIZE = 2048
         // PAGES=128
         // BANKS=PAGESIZE x 16
 
-        iterations = pages * (PAGESIZE / BUFSIZE);
+        iterations = pages * PAGESIZE / W_BUFSIZE;
 
         uint32_t *dWordPtr;
 
         for (uint16_t page = 0; page < iterations; page++)
         {
-                addr = page * BUFSIZE;
+                addr = page * W_BUFSIZE;
                 txPtr = fw + addr;
                 dWordPtr=(uint32_t *)txPtr;
 
-                // check if block needs to be written to flash
-                for (uint16_t i = 0; i < BUFSIZE/4; i++)
+                // check if block needs to be written to flash   
+                for (uint16_t i = 0; i < W_BUFSIZE/4; i++)
                 {
                         if (dWordPtr[i] != 0xFFFFFFFF)
                         {
                                 printf("flashing block %d of %d.\r", (page + 1), iterations);
                                 fflush(stdout);
-                                write_flash_memory_block(txPtr, addr, BUFSIZE); // src, address, count
+                                write_flash_memory_block(txPtr, addr, W_BUFSIZE); // src, address, count
                                 break;
                         }
                 }
@@ -595,19 +593,22 @@ uint8_t flash(uint8_t *fw, uint8_t pages, uint8_t Verify, uint8_t Verbose)
         {
                 uint32_t *ptr1, *ptr2;
                 uint32_t mempos = 0x0;
+                uint8_t read_data[R_BUFSIZE];
 
                 ptr2=(uint32_t *)(read_data);
+
+        	iterations = pages * PAGESIZE / R_BUFSIZE;
 
                 for (uint16_t page = 0; page < iterations; page++)
                 {
                         printf("\rverifying block %d of %d", (page + 1), iterations);
                         fflush(stdout);
-                        addr = page * BUFSIZE;
-                        read_flash_memory_block(addr, BUFSIZE, read_data); // addr, count, dest
+                        addr = page * R_BUFSIZE;
+                        read_flash_memory_block(addr, R_BUFSIZE, read_data); // addr, count, dest
 
                         ptr1=(uint32_t *)(fw+addr);
 
-                        for (uint16_t i = 0; i < BUFSIZE/4; i++)
+                        for (uint16_t i = 0; i < W_BUFSIZE/4; i++)
                         {
                                 // if (read_data[i] != fw[mempos++])
                                 if (ptr1[i] != ptr2[i])
@@ -650,7 +651,7 @@ uint8_t *readFile(char *fn, uint8_t *size, bool verbose)
         uint16_t maxpage = 0;
         while (fgets(buffer, 600, ficin))
         {
-                uint6_t sum = 0, cksum, type;
+                uint16_t sum = 0, cksum, type;
                 uint32_t addr, len;
                 line++;
                 if (line % 10 == 0 && verbose)
