@@ -22,6 +22,8 @@ Wiring:
  
  Compiling:
  
+ Use supplied Makefile - or manualy run C-compiler...
+ 
  ```
  # gcc -o flashPiCC flashPiCC.c -lwiringPi
  ```
