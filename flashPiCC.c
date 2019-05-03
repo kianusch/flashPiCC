@@ -554,7 +554,6 @@ uint8_t flash(uint8_t *fw, uint8_t pages, uint8_t Verify, uint8_t Verbose)
         debug_config = 0x22;
         debug_command(CMD_WR_CONFIG, &debug_config, 1);
 
-        uint8_t Done = 0;
         uint8_t *txPtr;
         uint16_t iterations;
         uint32_t addr = 0;
@@ -592,10 +591,8 @@ uint8_t flash(uint8_t *fw, uint8_t pages, uint8_t Verify, uint8_t Verbose)
         if (Verify)
         {
                 uint32_t *ptr1, *ptr2;
-                uint32_t mempos = 0x0;
+                // uint32_t mempos = 0x0;
                 uint8_t read_data[R_BUFSIZE];
-
-                ptr2=(uint32_t *)(read_data);
 
         	iterations = pages * PAGESIZE / R_BUFSIZE;
 
@@ -605,19 +602,12 @@ uint8_t flash(uint8_t *fw, uint8_t pages, uint8_t Verify, uint8_t Verbose)
                         fflush(stdout);
                         addr = page * R_BUFSIZE;
                         read_flash_memory_block(addr, R_BUFSIZE, read_data); // addr, count, dest
-
-                        ptr1=(uint32_t *)(fw+addr);
-
-                        for (uint16_t i = 0; i < W_BUFSIZE/4; i++)
-                        {
-                                // if (read_data[i] != fw[mempos++])
-                                if (ptr1[i] != ptr2[i])
-                                {
-                                        printf(" - FAILED.\n");
-                                        fflush(stdout);
-                                        return (ERRO);
-                                }
+                        if (memcmp(read_data,fw+addr,W_BUFSIZE)) {
+                            printf(" - FAILED.\n");
+                            fflush(stdout);
+                            return (ERRO);
                         }
+
                 }
                 printf(" - OK.");
         }
